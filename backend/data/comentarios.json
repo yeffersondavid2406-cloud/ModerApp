@@ -1,0 +1,123 @@
+
+[
+  {
+    "id": 1,
+    "usuario": "laura_m",
+    "texto": "Actualicé el driver y el problema del ventilador se solucionó. ¡Gracias por la guía!",
+    "reportes": 0
+  },
+  {
+    "id": 2,
+    "usuario": "ofertas_ya",
+    "texto": "¡Gana dinero desde casa! Entra a este enlace y duplica tus ingresos hoy.",
+    "reportes": 5
+  },
+  {
+    "id": 3,
+    "usuario": "carlos_dev",
+    "texto": "Me funcionó perfectamente. Muy buen tutorial.",
+    "reportes": 0
+  },
+  {
+    "id": 4,
+    "usuario": "usuario_87",
+    "texto": "Eres un inútil, no sabes explicar nada.",
+    "reportes": 2
+  },
+  {
+    "id": 5,
+    "usuario": "maria23",
+    "texto": "Gracias por compartir esta solución, me ayudó bastante.",
+    "reportes": 0
+  },
+  {
+    "id": 6,
+    "usuario": "promo_online",
+    "texto": "Compra ahora nuestros productos con 90% de descuento. Oferta limitada.",
+    "reportes": 4
+  },
+  {
+    "id": 7,
+    "usuario": "andres_pc",
+    "texto": "Mi número es 3001234567, escríbeme para ayudarte.",
+    "reportes": 1
+  },
+  {
+    "id": 8,
+    "usuario": "anonimo",
+    "texto": "Sé dónde trabajas y pronto tendrás noticias mías.",
+    "reportes": 3
+  },
+  {
+    "id": 9,
+    "usuario": "sofia_r",
+    "texto": "El programa presenta errores cuando intento guardar los cambios.",
+    "reportes": 0
+  },
+  {
+    "id": 10,
+    "usuario": "tech_user",
+    "texto": "La explicación está bien, pero faltan ejemplos prácticos.",
+    "reportes": 0
+  },
+  {
+    "id": 11,
+    "usuario": "david22",
+    "texto": "Excelente contenido, sigue publicando tutoriales.",
+    "reportes": 0
+  },
+  {
+    "id": 12,
+    "usuario": "marketing_fast",
+    "texto": "Sígueme y visita mi perfil para ganar seguidores rápidamente.",
+    "reportes": 6
+  },
+  {
+    "id": 13,
+    "usuario": "usuario_x",
+    "texto": "Todos los que usan este programa son unos ignorantes.",
+    "reportes": 2
+  },
+  {
+    "id": 14,
+    "usuario": "julian_dev",
+    "texto": "¿Podrías hacer un tutorial sobre cómo conectar la base de datos?",
+    "reportes": 0
+  },
+  {
+    "id": 15,
+    "usuario": "curioso",
+    "texto": "¿Este enlace es seguro o puede robar mis datos?",
+    "reportes": 1
+  },
+  {
+    "id": 16,
+    "usuario": "pc_gamer",
+    "texto": "No me funciona el juego después de actualizar.",
+    "reportes": 6
+  },
+  {
+    "id": 17,
+    "usuario": "ventas_express",
+    "texto": "Gana premios gratis registrándote en mi página.",
+    "reportes": 3
+  },
+  {
+    "id": 18,
+    "usuario": "dark_user",
+    "texto": "Voy a encontrarte y te vas a arrepentir de lo que hiciste.",
+    "reportes": 4
+  },
+  {
+    "id": 19,
+    "usuario": "camila",
+    "texto": "Muchas gracias, ahora entiendo cómo funciona.",
+    "reportes": 0
+  },
+  {
+    "id": 20,
+    "usuario": "test_user",
+    "texto": "Prueba de comentario para verificar el sistema de moderación.",
+    "reportes": 0
+  }
+]

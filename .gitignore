@@ -1,0 +1,21 @@
+
+# Dependencias
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Variables de entorno y claves
+.env
+.env.*
+!.env.example
+
+# Archivos generados
+dist/
+build/
+
+# Logs
+*.log
+
+# Sistema operativo y editor
+.DS_Store
+.vscode/
