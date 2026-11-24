@@ -10,12 +10,12 @@
     "id": 2,
     "usuario": "promo_ya88",
     "fecha": "2026-11-02T08:20:00",
-    "texto": "GANA DINERO DESDE CASA entra a [http://dinero-facil.xyz](http://dinero-facil.xyz) y empieza hoy mismo",
+    "texto": "GANA DINERO DESDE CASA entra a http://dinero-facil.xyz y empieza hoy mismo",
     "reportes": 4
   },
   {
     "id": 3,
-    "usuario": "[andres.dev](http://andres.dev/)",
+    "usuario": "andres.dev",
     "fecha": "2026-11-02T09:03:00",
     "texto": "¿Alguien sabe si el modelo 2024 trae puerto HDMI 2.1?",
     "reportes": 0
@@ -31,7 +31,7 @@
     "id": 5,
     "usuario": "moderador_ana",
     "fecha": "2026-11-02T11:05:00",
-    "texto": "Para temas de garantía escriban al soporte oficial: [https://soporte.ejemplo.com/garantia](https://soporte.ejemplo.com/garantia)",
+    "texto": "Para temas de garantía escriban al soporte oficial: https://soporte.ejemplo.com/garantia",
     "reportes": 0
   },
   {
@@ -80,7 +80,7 @@
     "id": 12,
     "usuario": "ofertas_hoy",
     "fecha": "2026-11-04T10:10:00",
-    "texto": "OFERTA OFERTA OFERTA cupón del 90% de descuento en [ofertas-hoy.net](http://ofertas-hoy.net/)",
+    "texto": "OFERTA OFERTA OFERTA cupón del 90% de descuento en ofertas-hoy.net",
     "reportes": 3
   },
   {
@@ -101,7 +101,7 @@
     "id": 15,
     "usuario": "marta_l",
     "fecha": "2026-11-05T11:18:00",
-    "texto": "Alguien me dijo que en [dinero-facil.xyz](http://dinero-facil.xyz/) regalan equipos, ¿será verdad o es estafa?",
+    "texto": "Alguien me dijo que en dinero-facil.xyz regalan equipos, ¿será verdad o es estafa?",
     "reportes": 0
   },
   {
@@ -115,7 +115,7 @@
     "id": 17,
     "usuario": "ganancias_2026",
     "fecha": "2026-11-05T14:02:00",
-    "texto": "Gana dinero desde casa, entra a [http://dinero-facil.xyz](http://dinero-facil.xyz)",
+    "texto": "Gana dinero desde casa, entra a http://dinero-facil.xyz",
     "reportes": 1
   },
   {
@@ -129,7 +129,7 @@
     "id": 19,
     "usuario": "vale_c",
     "fecha": "2026-11-06T22:15:00",
-    "texto": "El tutorial de la versión 3.2 está aquí: [https://www.youtube.com/watch?v=ejemplo](https://www.youtube.com/watch?v=ejemplo) (no esmío, solo lo comparto)",
+    "texto": "El tutorial de la versión 3.2 está aquí: https://www.youtube.com/watch?v=ejemplo (no es mío, solo lo comparto)",
     "reportes": 0
   },
   {

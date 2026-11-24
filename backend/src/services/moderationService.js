@@ -1,209 +1,202 @@
+import { AI_BATCH_SIZE } from "../config/env.js";
+import {
+  classifyCommentsWithAI,
+  getAIModel,
+  isAIEnabled
+} from "./aiAgent.js";
+import { classifyWithRules } from "./moderationRules.js";
 
-import { classifyComment } from "../services/aiAgent.js";
+const aiCache = new Map();
+const AI_COOLDOWN_MS = 60000;
 
-const MAX_BATCH_SIZE = 100;
-const CONCURRENCY = 3;
+let aiCooldownUntil = 0;
 
-function validateComment(comment) {
-  if (!comment || typeof comment !== "object" || Array.isArray(comment)) {
-    return "El comentario debe ser un objeto válido.";
-  }
-
-  if (
-    comment.usuario !== undefined &&
-    typeof comment.usuario !== "string"
-  ) {
-    return "El usuario debe ser un texto.";
-  }
-
-  if (typeof comment.texto !== "string") {
-    return "El texto del comentario es obligatorio.";
-  }
-
-  if (
-    comment.reportes !== undefined &&
-    (
-      !Number.isInteger(comment.reportes) ||
-      comment.reportes < 0
-    )
-  ) {
-    return "El número de reportes debe ser un entero positivo.";
-  }
-
-  if (
-    comment.id !== undefined &&
-    !["string", "number"].includes(typeof comment.id)
-  ) {
-    return "El ID del comentario no es válido.";
-  }
-
-  return null;
-}
-
-// Analizar un comentario individual.
-async function analyzeSingleComment(comment) {
-  const result = await classifyComment(comment);
-
-  return {
+function buildCacheKey(comment) {
+  return JSON.stringify({
     id: comment.id ?? null,
-    usuario: comment.usuario || "usuario_desconocido",
-    texto: comment.texto,
-    reportes: comment.reportes ?? 0,
-    moderacion: result
-  };
+    usuario: comment.usuario ?? "",
+    texto: comment.texto ?? "",
+    reportes: Number(comment.reportes) || 0
+  });
 }
 
-// Analizar varios comentarios con concurrencia limitada.
-async function analyzeBatch(comments) {
-  const results = new Array(comments.length);
+function chunk(items, size) {
+  const chunks = [];
 
-  let currentIndex = 0;
-
-  async function worker() {
-    while (true) {
-      const index = currentIndex++;
-
-      if (index >= comments.length) {
-        break;
-      }
-
-      const comment = comments[index];
-
-      try {
-        results[index] = {
-          success: true,
-          ...await analyzeSingleComment(comment)
-        };
-      } catch (error) {
-        console.error(
-          `Error analizando comentario ${comment.id ?? index}:`,
-          error.message
-        );
-
-        results[index] = {
-          success: false,
-          id: comment.id ?? null,
-          usuario: comment.usuario || "usuario_desconocido",
-          error: "No fue posible analizar este comentario."
-        };
-      }
-    }
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
   }
 
-  const workers = Array.from(
-    {
-      length: Math.min(CONCURRENCY, comments.length)
-    },
-    () => worker()
+  return chunks;
+}
+
+function describeBatchFailure(error) {
+  const status =
+    error?.status ??
+    error?.code ??
+    error?.response?.status;
+
+  return status ? `estado ${status}` : "error de conexión o respuesta";
+}
+
+function isAIUnavailable(error) {
+  const status = Number(
+    error?.status ??
+    error?.code ??
+    error?.response?.status
   );
 
-  await Promise.all(workers);
+  return status === 429 || status === 503;
+}
 
-  const summary = {
-    total: results.length,
-    ok: 0,
-    spam: 0,
-    revisar: 0,
-    errores: 0
-  };
+function shouldStopAIBatch(error) {
+  const status = Number(
+    error?.status ??
+    error?.code ??
+    error?.response?.status
+  );
 
-  for (const result of results) {
-    if (!result.success) {
-      summary.errores++;
-      continue;
-    }
+  return [401, 403, 404, 429, 503].includes(status);
+}
 
-    summary[result.moderacion.category]++;
+export function clearModerationCache() {
+  aiCache.clear();
+  aiCooldownUntil = 0;
+}
+
+export async function classifyComments(comments, options = {}) {
+  const {
+    useAI = isAIEnabled(),
+    aiClassifier = classifyCommentsWithAI
+  } = options;
+
+  if (!Array.isArray(comments) || comments.length === 0) {
+    return {
+      results: [],
+      meta: {
+        total: 0,
+        aiEnabled: isAIEnabled(),
+        model: getAIModel(),
+        usedAI: false,
+        fallbacks: 0
+      }
+    };
   }
 
+  const prepared = comments.map(comment => ({
+    comment,
+    rules: classifyWithRules(comment),
+    ai: null
+  }));
+
+  if (useAI) {
+    const pending = [];
+
+    for (const item of prepared) {
+      const cached = aiCache.get(buildCacheKey(item.comment));
+
+      if (cached) {
+        item.ai = cached;
+      } else {
+        pending.push(item);
+      }
+    }
+
+    if (Date.now() >= aiCooldownUntil) {
+      for (const group of chunk(pending, AI_BATCH_SIZE)) {
+        if (Date.now() < aiCooldownUntil) {
+          break;
+        }
+
+        const aiComments = group.map(item => ({
+          ...item.comment,
+          ruleSignals: item.rules.signals
+        }));
+
+        try {
+          const aiResults = await aiClassifier(aiComments);
+
+          if (Array.isArray(aiResults)) {
+            group.forEach((item, index) => {
+              const aiResult = aiResults[index];
+
+              if (aiResult) {
+                item.ai = aiResult;
+                aiCache.set(buildCacheKey(item.comment), aiResult);
+              }
+            });
+          }
+
+          aiCooldownUntil = 0;
+        } catch (error) {
+          if (isAIUnavailable(error)) {
+            aiCooldownUntil = Date.now() + AI_COOLDOWN_MS;
+          }
+
+          const ids = group
+            .map(item => item.comment.id ?? "sin id")
+            .join(", ");
+
+          console.warn(
+            `No fue posible clasificar con IA (${ids}): ` +
+            `${describeBatchFailure(error)}. Se usará el clasificador por reglas.`
+          );
+
+          // NUEVO: muestra el error real
+          console.error("status:", error?.status ?? error?.code);
+          console.error("message:", error?.message);
+
+          if (shouldStopAIBatch(error)) {
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  let usedAI = false;
+  let fallbacks = 0;
+
+  const results = prepared.map(item => {
+    if (item.ai) {
+      usedAI = true;
+
+      return {
+        ...item.comment,
+        moderacion: item.ai
+      };
+    }
+
+    if (useAI) {
+      fallbacks++;
+    }
+
+    return {
+      ...item.comment,
+      moderacion: {
+        ...item.rules,
+        method: useAI ? "rules_fallback" : "rules"
+      }
+    };
+  });
+
   return {
-    success: true,
-    resumen: summary,
-    resultados: results
+    results,
+    meta: {
+      total: results.length,
+      aiEnabled: isAIEnabled(),
+      model: getAIModel(),
+      usedAI,
+      fallbacks
+    }
   };
 }
 
-export async function classifyCommentController(req, res) {
-  try {
-    const body = req.body;
+export async function classifyComment(comment, options = {}) {
+  const { results, meta } = await classifyComments([comment], options);
 
-    // Detectar si se recibió una lista de comentarios.
-    const isBatch = Array.isArray(body) ||
-      (body && Array.isArray(body.comentarios));
-
-    if (isBatch) {
-      const comments = Array.isArray(body)
-        ? body
-        : body.comentarios;
-
-      if (comments.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Debes enviar al menos un comentario."
-        });
-      }
-
-      if (comments.length > MAX_BATCH_SIZE) {
-        return res.status(400).json({
-          success: false,
-          message: `El máximo permitido es ${MAX_BATCH_SIZE} comentarios.`
-        });
-      }
-
-      // Validar todos los comentarios antes de procesarlos.
-      const invalidComments = [];
-
-      comments.forEach((comment, index) => {
-        const error = validateComment(comment);
-
-        if (error) {
-          invalidComments.push({
-            index,
-            id: comment?.id ?? null,
-            error
-          });
-        }
-      });
-
-      if (invalidComments.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Algunos comentarios contienen datos inválidos.",
-          errores: invalidComments
-        });
-      }
-
-      const result = await analyzeBatch(comments);
-
-      return res.status(200).json(result);
-    }
-
-    // Análisis individual.
-    const validationError = validateComment(body);
-
-    if (validationError) {
-      return res.status(400).json({
-        success: false,
-        message: validationError
-      });
-    }
-
-    const result = await analyzeSingleComment(body);
-
-    return res.status(200).json({
-      success: true,
-      comentario: result
-    });
-
-  } catch (error) {
-    console.error("Error en el servicio de moderación:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "No fue posible realizar la moderación.",
-      error: process.env.NODE_ENV === "development"
-        ? error.message
-        : undefined
-    });
-  }
+  return {
+    result: results[0],
+    meta
+  };
 }

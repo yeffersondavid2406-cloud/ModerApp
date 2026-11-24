@@ -1,15 +1,47 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getComments } from "../services/api";
+
+const CATEGORY_LABELS = {
+  ok: "Legítimo",
+  spam: "Spam",
+  revisar: "Revisar"
+};
+
+const METHOD_LABELS = {
+  ai: "IA",
+  rules: "Reglas",
+  rules_fallback: "Reglas"
+};
+
+const SIGNAL_LABELS = {
+  vacio: "vacío",
+  amenaza: "amenaza",
+  insulto: "insulto",
+  posible_estafa: "posible estafa",
+  publicidad: "publicidad",
+  dato_personal: "dato personal",
+  enlace_externo: "enlace externo",
+  muchos_reportes: "muchos reportes"
+};
+
+function getModeration(comment) {
+  return comment.moderacion || {
+    category: "revisar",
+    reason: "No se recibió información de clasificación.",
+    confidence: 0,
+    signals: [],
+    method: "rules"
+  };
+}
 
 function Dashboard() {
   const [comments, setComments] = useState([]);
-  const [counts, setCounts] = useState({
-    ok: 0,
-    spam: 0,
-    revisar: 0
+  const [meta, setMeta] = useState({
+    aiEnabled: false,
+    model: "",
+    usedAI: false,
+    fallbacks: 0
   });
-
   const [filter, setFilter] = useState("todos");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,7 +59,7 @@ function Dashboard() {
           }))
         );
 
-        setCounts(data.counts);
+        setMeta(data.meta || {});
       } catch (err) {
         console.error(err);
         setError("No se pudieron cargar los comentarios.");
@@ -49,22 +81,47 @@ function Dashboard() {
     );
   }
 
+  const counts = useMemo(() => {
+    return comments.reduce(
+      (accumulator, comment) => {
+        const category = getModeration(comment).category;
+
+        if (category in accumulator) {
+          accumulator[category]++;
+        }
+
+        return accumulator;
+      },
+      {
+        ok: 0,
+        spam: 0,
+        revisar: 0
+      }
+    );
+  }, [comments]);
+
   const filteredComments = comments.filter(comment => {
+    const moderation = getModeration(comment);
+
     const matchesCategory =
-      filter === "todos" ||
-      comment.moderacion.category === filter;
+      filter === "todos" || moderation.category === filter;
 
     const searchText = search.toLowerCase();
 
     const matchesSearch =
-      comment.usuario.toLowerCase().includes(searchText) ||
-      comment.texto.toLowerCase().includes(searchText);
+      String(comment.usuario || "").toLowerCase().includes(searchText) ||
+      String(comment.texto || "").toLowerCase().includes(searchText);
 
     return matchesCategory && matchesSearch;
   });
 
-  if (loading) return <div className="loading">Cargando comentarios...</div>;
-  if (error) return <div className="error">{error}</div>;
+  if (loading) {
+    return <div className="loading">Cargando comentarios...</div>;
+  }
+
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
 
   return (
     <main className="dashboard">
@@ -75,6 +132,28 @@ function Dashboard() {
         </div>
         <span>{comments.length} comentarios analizados</span>
       </header>
+
+      {!meta.aiEnabled && (
+        <div className="ai-banner warning">
+          <strong>IA no configurada.</strong> Se está usando el clasificador
+          por reglas. Configura <code>GEMINI_API_KEY</code> en{" "}
+          <code>backend/.env</code> para activar Gemini.
+        </div>
+      )}
+
+      {meta.aiEnabled && meta.fallbacks > 0 && (
+        <div className="ai-banner warning">
+          <strong>Respaldo activo.</strong> {meta.fallbacks} comentario(s) no
+          se pudieron clasificar con IA y se usaron las reglas.
+        </div>
+      )}
+
+      {meta.aiEnabled && meta.usedAI && meta.fallbacks === 0 && (
+        <div className="ai-banner info">
+          <strong>Gemini activo.</strong> Clasificación realizada con{" "}
+          {meta.model || "el modelo configurado"}.
+        </div>
+      )}
 
       <section className="stats">
         <article className="stat-card">
@@ -141,45 +220,69 @@ function Dashboard() {
         </div>
 
         <div className="comments-list">
-          {filteredComments.map(comment => (
-            <article
-              className={`comment-card ${comment.revisado ? "reviewed" : ""}`}
-              key={comment.id}
-            >
-              <div className="comment-top">
-                <div>
-                  <strong>@{comment.usuario}</strong>
-                  <small>
-                    Comentario #{comment.id} · {comment.reportes} reportes
-                  </small>
+          {filteredComments.map(comment => {
+            const moderation = getModeration(comment);
+
+            return (
+              <article
+                className={`comment-card ${comment.revisado ? "reviewed" : ""}`}
+                key={comment.id}
+              >
+                <div className="comment-top">
+                  <div>
+                    <strong>@{comment.usuario || "usuario_desconocido"}</strong>
+                    <small>
+                      Comentario #{comment.id} · {comment.reportes} reportes
+                    </small>
+                  </div>
+
+                  <div className="comment-badges">
+                    <span className={`category ${moderation.category}`}>
+                      {CATEGORY_LABELS[moderation.category] || "Revisar"}
+                    </span>
+                    <span className={`method-badge ${moderation.method}`}>
+                      {METHOD_LABELS[moderation.method] || "Reglas"}
+                    </span>
+                    <span className="confidence">
+                      {Math.round(Number(moderation.confidence || 0) * 100)}%
+                    </span>
+                  </div>
                 </div>
 
-                <span className={`category ${comment.moderacion.category}`}>
-                  {comment.moderacion.category === "ok"
-                    ? "Legítimo"
-                    : comment.moderacion.category === "spam"
-                    ? "Spam"
-                    : "Revisar"}
-                </span>
-              </div>
+                <p className="comment-text">
+                  {comment.texto || "Sin contenido."}
+                </p>
 
-              <p>{comment.texto}</p>
+                <div className="reason">
+                  <strong>Motivo de clasificación:</strong>
+                  <span>{moderation.reason}</span>
+                </div>
 
-              <div className="reason">
-                <strong>Motivo de clasificación:</strong>
-                <span>{comment.moderacion.reason}</span>
-              </div>
+                {moderation.signals?.length > 0 && (
+                  <div className="signals">
+                    {moderation.signals.map(signal => (
+                      <span className="signal-chip" key={signal}>
+                        {SIGNAL_LABELS[signal] || signal}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-              <div className="comment-actions">
-                <button
-                  className={comment.revisado ? "reviewed-button" : "review-button"}
-                  onClick={() => markAsReviewed(comment.id)}
-                >
-                  {comment.revisado ? "✓ Revisado" : "Marcar como revisado"}
-                </button>
-              </div>
-            </article>
-          ))}
+                <div className="comment-actions">
+                  <button
+                    className={
+                      comment.revisado
+                        ? "reviewed-button"
+                        : "review-button"
+                    }
+                    onClick={() => markAsReviewed(comment.id)}
+                  >
+                    {comment.revisado ? "✓ Revisado" : "Marcar como revisado"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
 
           {filteredComments.length === 0 && (
             <div className="empty-state">
