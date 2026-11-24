@@ -1,57 +1,93 @@
 
-const spamWords = [
-  "gana dinero",
-  "duplica tus ingresos",
-  "compra ahora",
-  "descuento",
-  "oferta limitada",
-  "sígueme",
-  "ganar seguidores",
-  "premios gratis"
+const spamPatterns = [
+  /gana dinero/i,
+  /duplica tus ingresos/i,
+  /compra ahora/i,
+  /descuento del \d+/i,
+  /oferta limitada/i,
+  /compra seguidores/i,
+  /ganar seguidores/i,
+  /premios gratis/i,
+  /escr[ií]beme al whatsapp/i,
+  /dinero f[aá]cil/i
 ];
 
-const reviewWords = [
-  "inútil",
-  "ignorantes",
-  "te arrepentirás",
-  "te vas a arrepentir",
-  "sé dónde trabajas",
-  "voy a encontrarte"
+const offensivePatterns = [
+  /\bidiota\b/i,
+  /\best[uú]pido\b/i,
+  /\bignorantes\b/i,
+  /\bin[uú]til\b/i,
+  /\bimb[eé]cil\b/i
 ];
+
+const threatPatterns = [
+  /te voy a encontrar/i,
+  /vas a ver lo que te pasa/i,
+  /s[eé] d[oó]nde trabajas/i,
+  /te vas a arrepentir/i,
+  /te arrepentir[aá]s/i
+];
+
+const phonePattern = /(?:\+?57[\s.-]?)?3\d{2}[\s.-]?\d{3}[\s.-]?\d{4}|\b\d{10}\b/;
+
+const urlPattern = /https?:\/\/[^\s]+|www\.[^\s]+/i;
 
 export function classifyWithRules(comment) {
-  const text = comment.texto.toLowerCase();
+  const text = String(comment.texto || "").trim();
 
-  if (reviewWords.some(word => text.includes(word))) {
-    return {
-      category: "revisar",
-      reason: "Contiene expresiones ofensivas o posibles amenazas."
-    };
+  const signals = [];
+
+  if (!text) {
+    signals.push({
+      type: "empty",
+      description: "El comentario está vacío."
+    });
   }
 
-  if (/\b\d{10}\b/.test(text)) {
-    return {
-      category: "revisar",
-      reason: "Podría contener información personal, como un número telefónico."
-    };
+  if (spamPatterns.some(pattern => pattern.test(text))) {
+    signals.push({
+      type: "possible_spam",
+      description: "Contiene expresiones asociadas con promociones o publicidad."
+    });
   }
 
-  if (spamWords.some(word => text.includes(word))) {
-    return {
-      category: "spam",
-      reason: "Contiene expresiones asociadas con publicidad o promociones."
-    };
+  if (offensivePatterns.some(pattern => pattern.test(text))) {
+    signals.push({
+      type: "offensive_language",
+      description: "Contiene posibles expresiones ofensivas."
+    });
   }
 
-  if (comment.reportes >= 5) {
-    return {
-      category: "revisar",
-      reason: "Tiene cinco o más reportes y necesita evaluación humana."
-    };
+  if (threatPatterns.some(pattern => pattern.test(text))) {
+    signals.push({
+      type: "possible_threat",
+      description: "Contiene expresiones que podrían representar una amenaza."
+    });
+  }
+
+  if (phonePattern.test(text)) {
+    signals.push({
+      type: "personal_information",
+      description: "Podría contener un número telefónico."
+    });
+  }
+
+  if (urlPattern.test(text)) {
+    signals.push({
+      type: "external_link",
+      description: "Contiene un enlace externo."
+    });
+  }
+
+  if (Number(comment.reportes) >= 5) {
+    signals.push({
+      type: "high_reports",
+      description: "El comentario tiene cinco o más reportes."
+    });
   }
 
   return {
-    category: "ok",
-    reason: "No se encontraron señales claras de spam o contenido problemático."
+    signals,
+    hasSignals: signals.length > 0
   };
 }
